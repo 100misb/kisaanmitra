@@ -22,6 +22,13 @@ def load_historic_data(centre: str, variety: str):
     return data_filter
 
 
+@st.cache_data
+def load_historic_data_all_cols(centre: str, variety: str):
+    data = pd.read_excel(HISTORIC_DATA)
+    data_filter = data[(data["centre"] == centre) & (data["variety"] == variety)]
+    return data_filter
+
+
 @st.cache_resource
 def load_model(model_id: str):
     model_path = MLRUNS / model_id / "artifacts" / "model" / "model.pkl"
@@ -95,11 +102,6 @@ def layout_predict_wheat_price(model_id: str, centre: str, variety: str):
     )
     st.plotly_chart(fig, theme="streamlit", use_container_width=True)
 
-    # # add metric for current month
-    # _, _, _, predicted_col, _, _ , _ = st.columns(7)
-    # with predicted_col:
-    #     st.metric("Predicted Price", "Rs. 2000")
-
     with st.container():
         # add layout metric for previous month
         _, month_1, _, month_2, _, month_3, _ = st.columns(7)
@@ -127,6 +129,8 @@ def layout_predict_wheat_price(model_id: str, centre: str, variety: str):
                 month_3_val,
                 f"{round(df.iloc[-1,2]*100,2)}%",
             )
+
+    st.info(f"**Note:** Predicted and Historic prices are INR/Kg")
 
 
 label = "Select a Centre"
@@ -167,5 +171,185 @@ with value_month_tab:
             variety="Kalyan HYV",
         )
 
+
+@st.cache_resource
+def last_6_month_chart(df, centre, variety):
+    fig = px.bar(
+        df,
+        x="month",
+        y="pct_change",
+        category_orders={"month": df["month"].to_list()},
+        labels={
+            "pct_change": "Percentage Change",
+            "month": "Month",
+        },
+    )
+    fig.update_traces(
+        marker_color=df["color"],
+        marker=dict(line=dict(width=2, color="DarkSlateGrey")),
+    )
+    fig.update_layout(
+        title={
+            "text": f"Percentage Changes in prices for Last 6 Months for {centre} - {variety}",
+            "xanchor": "center",
+            "yanchor": "top",
+            "y": 0.9,
+            "x": 0.5,
+        }
+    )
+    return fig
+
+
+@st.cache_resource
+def prev_month_fig(df, centre, variety, month):
+    fig = px.bar(
+        month_wise,
+        x="year",
+        y="pct_change",
+        category_orders={"month": month_wise["month"].to_list()},
+        labels={
+            "pct_change": "Percentage Change",
+            "year": "Year",
+        },
+    )
+    fig.update_traces(
+        marker_color=month_wise["color"],
+        marker=dict(line=dict(width=2, color="DarkSlateGrey")),
+    )
+    fig.update_layout(
+        title={
+            "text": f"Percentage Changes in prices for all {month} for {centre} - {variety}",
+            "xanchor": "center",
+            "yanchor": "top",
+            "y": 0.9,
+            "x": 0.5,
+        }
+    )
+    return fig
+
+
+@st.cache_resource
+def trendline_over_historic_chart(df):
+    fig = px.scatter(
+        df,
+        x="date",
+        y="value",
+        trendline="lowess",
+        trendline_options=dict(frac=0.6),
+        range_y=[15, 40],
+        labels={
+            "date": "Month Year",
+            "value": "Price (INR/kg)",
+        },
+    )
+    fig.update_traces(
+        line_color="red",
+        line_width=3,
+        marker=dict(
+            color="silver",
+            size=13,
+            line=dict(width=1.5, color="DarkSlateGrey"),
+            opacity=0.7,
+        ),
+    )
+    fig.update_layout(
+        title={
+            "text": "Trendline over all Historic Prices",
+            "y": 0.9,
+            "x": 0.5,
+            "xanchor": "center",
+            "yanchor": "top",
+        },
+    )
+    return fig
+
+
 with explanation_tab:
-    st.title("Explanations for the Wheat Prices")
+    desi_historic_data = load_historic_data_all_cols(select_centre, "Desi")
+    kyv_historic_data = load_historic_data_all_cols(select_centre, "Kalyan HYV")
+
+    with st.container():
+
+        desi_last_6_month_col, hyv_last_6_month_col = st.columns(2)
+
+        with desi_last_6_month_col:
+            last_6_month = desi_historic_data.iloc[-6:, :].copy(deep=False)
+            last_6_month["pct_change"] = last_6_month["value"].pct_change() * 100
+            last_6_month["color"] = last_6_month["pct_change"].apply(
+                lambda x: "lightgreen" if x > 0 else "lightpink"
+            )
+            last_6_month_chart_fig = last_6_month_chart(
+                last_6_month, select_centre, "Desi"
+            )
+            st.plotly_chart(
+                last_6_month_chart_fig, theme="streamlit", use_container_width=True
+            )
+
+        with hyv_last_6_month_col:
+            last_6_month = kyv_historic_data.iloc[-6:, :].copy(deep=False)
+            last_6_month["pct_change"] = last_6_month["value"].pct_change() * 100
+            last_6_month["color"] = last_6_month["pct_change"].apply(
+                lambda x: "lightgreen" if x > 0 else "lightpink"
+            )
+            last_6_month_chart_fig = last_6_month_chart(
+                last_6_month, select_centre, "Kalyan HYV"
+            )
+            st.plotly_chart(
+                last_6_month_chart_fig, theme="streamlit", use_container_width=True
+            )
+
+    with st.container():
+
+        desi_month_wise_col, hyv_month_wise_col = st.columns(2)
+
+        with desi_month_wise_col:
+            select_month_desi = st.selectbox(
+                label="Select a Month", options=["JAN", "FEB", "MAR"]
+            )
+            month_wise = desi_historic_data[
+                desi_historic_data["month"] == select_month_desi
+            ].copy(deep=False)
+            month_wise["pct_change"] = month_wise["value"].pct_change() * 100
+            month_wise["color"] = month_wise["pct_change"].apply(
+                lambda x: "lightgreen" if x > 0 else "lightpink"
+            )
+            month_wise_chart = prev_month_fig(
+                month_wise, select_centre, "Desi", select_month_desi
+            )
+            st.plotly_chart(
+                month_wise_chart, theme="streamlit", use_container_width=True
+            )
+
+        with hyv_month_wise_col:
+            select_month_kyv = st.selectbox(
+                label="Select a Month", options=["JAN", "FEB", "MAR"], key="kyv"
+            )
+            month_wise = kyv_historic_data[
+                kyv_historic_data["month"] == select_month_kyv
+            ].copy(deep=False)
+            month_wise["pct_change"] = month_wise["value"].pct_change() * 100
+            month_wise["color"] = month_wise["pct_change"].apply(
+                lambda x: "lightgreen" if x > 0 else "lightpink"
+            )
+            month_wise_chart = prev_month_fig(
+                month_wise, select_centre, "Kalyan HYV", select_month_kyv
+            )
+            st.plotly_chart(
+                month_wise_chart, theme="streamlit", use_container_width=True
+            )
+
+    with st.container():
+
+        desi_trend_col, hyv_trend_col = st.columns(2)
+
+        with desi_trend_col:
+            trend_line_plot_desi = trendline_over_historic_chart(desi_historic_data)
+            st.plotly_chart(
+                trend_line_plot_desi, theme="streamlit", use_container_width=True
+            )
+
+        with hyv_trend_col:
+            trend_line_plot_kyv = trendline_over_historic_chart(kyv_historic_data)
+            st.plotly_chart(
+                trend_line_plot_kyv, theme="streamlit", use_container_width=True
+            )
