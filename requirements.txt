@@ -1,0 +1,14 @@
+pandas
+scrapy
+html5lib
+bs4
+plotly
+matplotlib
+seaborn
+nbformat
+mlflow
+sklearn
+autots
+pynecone
+streamlit==1.18.1
+pandas-profiling
