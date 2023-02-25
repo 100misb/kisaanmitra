@@ -13,3 +13,4 @@ pynecone
 streamlit==1.18.1
 pandas-profiling
 openpyxl
+pandera
