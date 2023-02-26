@@ -141,6 +141,7 @@ centre_model_mapping: Dict[str, List[str]] = {
     "Mumbai": ["b6a76880bf0648f4a6e8693bea765f57", "462808cbbfa74a4bb45fdaa65a6a936e"],
     "Hyderabad": ["f697cf3789bc4a0b9059bfcc1c817b5a", "ae0c38ae66264d36943fefe31852c0e9"],
     "Bhubneshwar": ["02dd49cd3b8a416bb7ec36bb9f61d881", "50670fe6333c441292963c94f2bd3ea8"],
+    "Patna": ["cefd64ae299e4764b83516fc12bc3520","29cf24a43eb84f13940adbc1f8246b90"]
 }
 
 select_centre = st.selectbox(
